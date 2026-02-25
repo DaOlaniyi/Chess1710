@@ -1,4 +1,5 @@
-#lang forge/froglet
+#lang forge
+// /froglet
 
 option run_sterling "board_viz.js"
 
@@ -17,6 +18,11 @@ abstract sig Piece {
 }
 
 sig Pawn, Knight, Rook, Bishop, Queen, King extends Piece {}
+
+sig Position {
+    r: one Int,
+    c: one Int
+}
 
 sig Turn {
     // Row-major order
@@ -46,8 +52,76 @@ pred wellformed_turn[t: Turn] {
     }
 }
 
+////////// MOVEMENT //////////
+
+/** Get a set of possible moves for the piece in turn t at position [r][c] */
+fun getMoves[t: Turn, r, c: Int]: set Int{
+
+
+}
+
+/** True if a piece can move to a location
+    pre fields represent idx of piece
+    post fields represent after idx of piece
+*/
+pred can_move[t:Turn, r_pre, c_pre, r_post, c_post:Int]{
+
+}
+
+////////// TURNS //////////
+
+/** True iff only one piece moved */
+pred only_one_piece_moved[p_moved: Piece, tA, tB: Turn]{
+    all p_stable : Piece | some r_stable,c_stable: Int | {
+        // All stable pieces do not move between turns
+        (p_stable != p_moved) implies 
+            tA.board[r_stable][c_stable] = p_stable
+            tA.next.board[r_stable][c_stable] = p_stable // Note: Maybe this should be tA.next
+    }
+    // The moved piece changed location
+    // all r_moved_before, r_moved_after, c_moved_before, c_moved_after: Int | {
+    //     (tA.board[r_moved_before][c_moved_before] = p_moved and (r_moved_before != r_moved_after or c_moved_before != c_moved_after)) implies
+    //         tB.board[r_moved_after][c_moved_after] = p_moved
+    // }
+}
+
+/** True if one black piece was moved between turn A and B
+
+*/
+pred black_turn[tA, tB: Turn] {
+    some p:Piece | {
+        p.color = Black
+        only_one_piece_moved[p, tA, tB]
+    }
+
+}
+
+/** True if one white piece was moved between turn A and B
+
+*/
+pred white_turn[tA, tB: Turn] {
+    some p:Piece | {
+        p.color = White
+        only_one_piece_moved[p, tA, tB]
+    }
+
+}
+
+
+////////// RUN PREDICATES //////////
+
+// run {
+//     wellformed_pieces
+//     all t: Turn | wellformed_turn[t]
+    
+//     } for exactly 1 Turn, exactly 8 Piece
+
 run {
     wellformed_pieces
-    all t: Turn | wellformed_turn[t]
-    
-    } for exactly 1 Turn, exactly 8 Piece
+    // 
+    some disj turnA, turnB: Turn | { 
+        white_turn[turnA, turnB]
+        wellformed_turn[turnA]
+        wellformed_turn[turnB] }
+    all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
+} for exactly 2 Turn, exactly 4 Piece
