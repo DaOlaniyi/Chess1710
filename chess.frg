@@ -68,6 +68,54 @@ pred black_pawn_moves[t:Turn, p: Pawn] {
     }
 }
 
+// Rook: A rook can move to any square provided one of its indices remains the same
+
+pred rook_moves[t: Turn, p: Rook] {
+    all r,c:Int | some any:Int | {
+        (t.board[r][c] = p) => t.next.board[r][any] = p or t.next.board[any][c] = p
+    }
+}
+
+// Bishops: Diagonals
+
+pred bishop_moves[t: Turn, p: Bishop] {
+    all r,c:Int | some any:Int | {
+        (t.board[r][c] = p) => t.next.board[add[r,any]][add[c,any]] = p or t.next.board[add[r,any]][subtract[c,any]] = p
+    }
+}
+
+// Queens: We basically get this one for free.
+
+pred queen_moves[t: Turn, p: Queen] {
+    all r,c:Int | some any:Int | {
+        (t.board[r][c] = p) => t.next.board[add[r,any]][add[c,any]] = p or t.next.board[add[r,any]][subtract[c,any]] = p or t.next.board[r][any] = p or t.next.board[any][c] = p
+    }
+}
+
+// Knights: An excersize in wondering how many different better ways of doing this there are
+
+pred knight_moves[t: Turn, p: Knight] {
+    all r,c:Int | {
+        (t.board[r][c] = p) => 
+                        t.next.board[add[r,1]][add[c,2]] = p or 
+                        t.next.board[subtract[r,1]][add[c,2]] = p or 
+                        t.next.board[add[r,1]][subtract[c,2]] = p or 
+                        t.next.board[subtract[r,1]][subtract[c,2]] = p or 
+                        t.next.board[add[r,2]][add[c,1]] = p or 
+                        t.next.board[subtract[r,2]][add[c,1]] = p or 
+                        t.next.board[add[r,2]][subtract[c,1]] = p or 
+                        t.next.board[subtract[r,2]][subtract[c,1]] = p
+    }
+}
+
+pred king_moves[t: Turn, p: Knight] {
+    all r,c:Int | all offset_r, offset_c: Int | {
+        (t.board[r][c] = p and  // I don't think this fully works yet
+        offset_r > -2 and offset_r < 2 and
+        offset_c > -2 and offset_c < 2) => t.next.board[add[r,offset_r]][add[c,offset_c]] = p 
+    }
+}
+
 /** Get a set of possible moves for a potential piece in turn t at position [r][c] */
 // fun getMoves[t: Turn, r, c: Int]: set Position{
 //     (t.board[r][c] in Pawn and t.board[r][c].color in White) implies {some p:Position | p.r = r and p.c = subtract[c,1]}
@@ -141,6 +189,24 @@ pred white_turn[tA, tB: Turn] {
 //     all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
 // } for exactly 2 Turn, exactly 4 Piece
 
+
+// Pawn Movement Run
+// run {
+//     wellformed_pieces
+//     // 
+//     some disj turnA, turnB: Turn | { 
+//         turnA.next = turnB
+//         white_turn[turnA, turnB]
+//         wellformed_turn[turnA]
+//         wellformed_turn[turnB] 
+//         all p: Pawn | {
+//             white_pawn_moves[turnA,p]
+//         }
+//     }
+//     all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
+// } for exactly 2 Turn, exactly 1 Pawn, exactly 1 Piece
+
+
 run {
     wellformed_pieces
     // 
@@ -149,9 +215,25 @@ run {
         white_turn[turnA, turnB]
         wellformed_turn[turnA]
         wellformed_turn[turnB] 
-        all p: Pawn | {
-            white_pawn_moves[turnA,p]
+        all r: Rook | {
+            rook_moves[turnA,r]
         }
     }
     all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
-} for exactly 2 Turn, exactly 1 Pawn, exactly 1 Piece
+} for exactly 2 Turn, exactly 1 Rook, exactly 1 Piece
+
+
+run {
+    wellformed_pieces
+    // 
+    some disj turnA, turnB: Turn | { 
+        turnA.next = turnB
+        white_turn[turnA, turnB]
+        wellformed_turn[turnA]
+        wellformed_turn[turnB] 
+        all b: Bishop | {
+            bishop_moves[turnA,b]
+        }
+    }
+    all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
+} for exactly 2 Turn, exactly 1 Bishop, exactly 1 Piece
