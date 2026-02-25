@@ -1,5 +1,4 @@
-#lang forge
-// /froglet
+#lang forge/froglet
 
 option run_sterling "board_viz.js"
 
@@ -19,10 +18,11 @@ abstract sig Piece {
 
 sig Pawn, Knight, Rook, Bishop, Queen, King extends Piece {}
 
-sig Position {
-    r: one Int,
-    c: one Int
-}
+// Tuple Type object for getting possible positions
+// sig Position {
+//     r: one Int,
+//     c: one Int
+// }
 
 sig Turn {
     // Row-major order
@@ -54,19 +54,34 @@ pred wellformed_turn[t: Turn] {
 
 ////////// MOVEMENT //////////
 
-/** Get a set of possible moves for the piece in turn t at position [r][c] */
-fun getMoves[t: Turn, r, c: Int]: set Int{
+// Pawns: For a pawn in turn t, there exists a row and column it was at, and a row and column +/- 1 it exists at in the next stage
 
-
+pred white_pawn_moves[t:Turn, p: Pawn] {
+    all r,c:Int | {
+        (t.board[r][c] = p) => t.next.board[r][subtract[c,1]] = p
+    }
 }
+
+pred black_pawn_moves[t:Turn, p: Pawn] {
+    all r,c:Int | {
+        (t.board[r][c] = p) => t.next.board[r][add[c,1]] = p
+    }
+}
+
+/** Get a set of possible moves for a potential piece in turn t at position [r][c] */
+// fun getMoves[t: Turn, r, c: Int]: set Position{
+//     (t.board[r][c] in Pawn and t.board[r][c].color in White) implies {some p:Position | p.r = r and p.c = subtract[c,1]}
+//     (t.board[r][c] in Pawn and t.board[r][c].color in Black) implies {some p:Position | p.r = r and p.c = add[c,1]}
+
+// }
 
 /** True if a piece can move to a location
     pre fields represent idx of piece
     post fields represent after idx of piece
 */
-pred can_move[t:Turn, r_pre, c_pre, r_post, c_post:Int]{
+// pred can_move[t:Turn, r_pre, c_pre, r_post, c_post:Int]{
 
-}
+// }
 
 ////////// TURNS //////////
 
@@ -116,12 +131,27 @@ pred white_turn[tA, tB: Turn] {
     
 //     } for exactly 1 Turn, exactly 8 Piece
 
+// run {
+//     wellformed_pieces
+//     // 
+//     some disj turnA, turnB: Turn | { 
+//         white_turn[turnA, turnB]
+//         wellformed_turn[turnA]
+//         wellformed_turn[turnB] }
+//     all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
+// } for exactly 2 Turn, exactly 4 Piece
+
 run {
     wellformed_pieces
     // 
     some disj turnA, turnB: Turn | { 
+        turnA.next = turnB
         white_turn[turnA, turnB]
         wellformed_turn[turnA]
-        wellformed_turn[turnB] }
+        wellformed_turn[turnB] 
+        all p: Pawn | {
+            white_pawn_moves[turnA,p]
+        }
+    }
     all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
-} for exactly 2 Turn, exactly 4 Piece
+} for exactly 2 Turn, exactly 1 Pawn, exactly 1 Piece
