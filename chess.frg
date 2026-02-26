@@ -56,13 +56,13 @@ pred wellformed_turn[t: Turn] {
 
 // Pawns: For a pawn in turn t, there exists a row and column it was at, and a row and column +/- 1 it exists at in the next stage
 
-pred white_pawn_moves[t:Turn, p: Pawn] {
+pred white_pawn_moves[t:Turn, p: Piece] {
     all r,c:Int | {
         (t.board[r][c] = p) => t.next.board[r][subtract[c,1]] = p
     }
 }
 
-pred black_pawn_moves[t:Turn, p: Pawn] {
+pred black_pawn_moves[t:Turn, p: Piece] {
     all r,c:Int | {
         (t.board[r][c] = p) => t.next.board[r][add[c,1]] = p
     }
@@ -70,7 +70,7 @@ pred black_pawn_moves[t:Turn, p: Pawn] {
 
 // Rook: A rook can move to any square provided one of its indices remains the same
 
-pred rook_moves[t: Turn, p: Rook] {
+pred rook_moves[t: Turn, p: Piece] {
     all r,c:Int | some any:Int | {
         (t.board[r][c] = p) => t.next.board[r][any] = p or t.next.board[any][c] = p
     }
@@ -78,7 +78,7 @@ pred rook_moves[t: Turn, p: Rook] {
 
 // Bishops: Diagonals
 
-pred bishop_moves[t: Turn, p: Bishop] {
+pred bishop_moves[t: Turn, p: Piece] {
     all r,c:Int | some any:Int | {
         (t.board[r][c] = p) => t.next.board[add[r,any]][add[c,any]] = p or t.next.board[add[r,any]][subtract[c,any]] = p
     }
@@ -86,7 +86,7 @@ pred bishop_moves[t: Turn, p: Bishop] {
 
 // Queens: We basically get this one for free.
 
-pred queen_moves[t: Turn, p: Queen] {
+pred queen_moves[t: Turn, p: Piece] {
     all r,c:Int | some any:Int | {
         (t.board[r][c] = p) => t.next.board[add[r,any]][add[c,any]] = p or t.next.board[add[r,any]][subtract[c,any]] = p or t.next.board[r][any] = p or t.next.board[any][c] = p
     }
@@ -94,7 +94,7 @@ pred queen_moves[t: Turn, p: Queen] {
 
 // Knights: An excersize in wondering how many different better ways of doing this there are
 
-pred knight_moves[t: Turn, p: Knight] {
+pred knight_moves[t: Turn, p: Piece] {
     all r,c:Int | {
         (t.board[r][c] = p) => 
                         t.next.board[add[r,1]][add[c,2]] = p or 
@@ -108,7 +108,7 @@ pred knight_moves[t: Turn, p: Knight] {
     }
 }
 
-pred king_moves[t: Turn, p: Knight] {
+pred king_moves[t: Turn, p: Piece] {
     all r,c:Int | all offset_r, offset_c: Int | {
         (t.board[r][c] = p and  // I don't think this fully works yet
         offset_r > -2 and offset_r < 2 and
@@ -148,6 +148,14 @@ pred only_one_piece_moved[p_moved: Piece, tA, tB: Turn]{
     // }
 }
 
+pred move_piece_not_pawn[t: Turn, p: Piece]{
+    (p in Knight) => knight_moves[t,p]
+    (p in Rook) => rook_moves[t,p]
+    (p in Bishop) => bishop_moves[t,p]
+    (p in Queen) => queen_moves[t,p]
+    (p in King) => king_moves[t,p]
+}
+
 /** True if one black piece was moved between turn A and B
 
 */
@@ -155,6 +163,8 @@ pred black_turn[tA, tB: Turn] {
     some p:Piece | {
         p.color = Black
         only_one_piece_moved[p, tA, tB]
+        (p in Pawn) => black_pawn_moves[tA, p]
+        else move_piece_not_pawn[tA,p]
     }
 
 }
@@ -166,6 +176,8 @@ pred white_turn[tA, tB: Turn] {
     some p:Piece | {
         p.color = White
         only_one_piece_moved[p, tA, tB]
+        (p in Pawn) => white_pawn_moves[tA, p]
+        else move_piece_not_pawn[tA,p]
     }
 
 }
@@ -189,6 +201,20 @@ pred white_turn[tA, tB: Turn] {
 //     all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
 // } for exactly 2 Turn, exactly 4 Piece
 
+run {
+    wellformed_pieces
+    // 
+    some disj turnA, turnB, turnC: Turn | { 
+        turnA.next = turnB
+        turnB.next = turnC
+        white_turn[turnA, turnB]
+        black_turn[turnB, turnC]
+        wellformed_turn[turnA]
+        wellformed_turn[turnB] 
+        wellformed_turn[turnC] 
+    }
+    all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
+} for exactly 3 Turn, exactly 2 Piece
 
 // Pawn Movement Run
 // run {
@@ -207,33 +233,78 @@ pred white_turn[tA, tB: Turn] {
 // } for exactly 2 Turn, exactly 1 Pawn, exactly 1 Piece
 
 
-run {
-    wellformed_pieces
-    // 
-    some disj turnA, turnB: Turn | { 
-        turnA.next = turnB
-        white_turn[turnA, turnB]
-        wellformed_turn[turnA]
-        wellformed_turn[turnB] 
-        all r: Rook | {
-            rook_moves[turnA,r]
-        }
-    }
-    all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
-} for exactly 2 Turn, exactly 1 Rook, exactly 1 Piece
+// run {
+//     wellformed_pieces
+//     // 
+//     some disj turnA, turnB: Turn | { 
+//         turnA.next = turnB
+//         white_turn[turnA, turnB]
+//         wellformed_turn[turnA]
+//         wellformed_turn[turnB] 
+//         all r: Rook | {
+//             rook_moves[turnA,r]
+//         }
+//     }
+//     all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
+// } for exactly 2 Turn, exactly 1 Rook, exactly 1 Piece
 
 
-run {
-    wellformed_pieces
-    // 
-    some disj turnA, turnB: Turn | { 
-        turnA.next = turnB
-        white_turn[turnA, turnB]
-        wellformed_turn[turnA]
-        wellformed_turn[turnB] 
-        all b: Bishop | {
-            bishop_moves[turnA,b]
-        }
-    }
-    all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
-} for exactly 2 Turn, exactly 1 Bishop, exactly 1 Piece
+// run {
+//     wellformed_pieces
+//     // 
+//     some disj turnA, turnB: Turn | { 
+//         turnA.next = turnB
+//         white_turn[turnA, turnB]
+//         wellformed_turn[turnA]
+//         wellformed_turn[turnB] 
+//         all b: Bishop | {
+//             bishop_moves[turnA,b]
+//         }
+//     }
+//     all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
+// } for exactly 2 Turn, exactly 1 Bishop, exactly 1 Piece
+
+// run {
+//     wellformed_pieces
+//     // 
+//     some disj turnA, turnB: Turn | { 
+//         turnA.next = turnB
+//         white_turn[turnA, turnB]
+//         wellformed_turn[turnA]
+//         wellformed_turn[turnB] 
+//         all q: Queen | {
+//             queen_moves[turnA,q]
+//         }
+//     }
+//     all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
+// } for exactly 2 Turn, exactly 1 Queen, exactly 1 Piece
+
+// run {
+//     wellformed_pieces
+//     // 
+//     some disj turnA, turnB: Turn | { 
+//         turnA.next = turnB
+//         white_turn[turnA, turnB]
+//         wellformed_turn[turnA]
+//         wellformed_turn[turnB] 
+//         all n: Knight | {
+//             knight_moves[turnA,n]
+//         }
+//     }
+//     all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
+// } for exactly 2 Turn, exactly 1 Knight, exactly 1 Piece
+
+// run {
+//     wellformed_pieces
+//     // 
+//     some disj turnA, turnB: Turn | { 
+//         turnA.next = turnB
+//         white_turn[turnA, turnB]
+//         wellformed_turn[turnA]
+//         wellformed_turn[turnB] 
+//         all k: Knight | {
+//             king_moves[turnA,k]
+//         }
+//     }
+//     all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
+// } for exactly 2 Turn, exactly 1 King, exactly 1 Piece
