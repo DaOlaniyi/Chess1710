@@ -52,13 +52,39 @@ pred wellformed_turn[t: Turn] {
     }
 }
 
+/** The piece captured during the move from turn t to turn t + 1. All subsequent turns (t + n) must not have this piece on the board */
+pred piece_captured[t:Turn, p:Piece] {
+    all t_subsequent: Turn | all r,c: Int {
+        (reachable[t_subsequent, t, next]) => t_subsequent.board[r][c] != p
+    }
+}
+
 ////////// MOVEMENT //////////
 
 // Pawns: For a pawn in turn t, there exists a row and column it was at, and a row and column +/- 1 it exists at in the next stage
+/** Capturing along an offset from the previous point. Useful for pawns, knights, and kings 
+    t: Current turn
+    p: Capturing Piece
+    r,c: Int offsets from piece position
+*/
+pred captures_along_offset[t:Turn, p: Piece, r_offset,c_offset:Int] {
+    all r,c:Int | all p_c: Piece{ // p_c is piece to be captured
+        // If the capturing piece is at location A and the capturable piece is at location A + offset, and their colors differ...
+        (t.board[r][c] = p and t.board[add[r, r_offset]][add[c, c_offset]] = p_c and p.color != p_c.color) =>
+            t.next.board[add[r, r_offset]][add[c, c_offset]] = p and piece_captured[t, p_c] // Move the piece to the captured piece's location and make sure the captured piece is not present in future turns.
+    }
+
+}
 
 pred white_pawn_moves[t:Turn, p: Piece] {
     all r,c:Int | {
-        (t.board[r][c] = p) => t.next.board[r][subtract[c,1]] = p
+        // movement
+        ((t.board[r][c] = p) => t.next.board[r][subtract[c,1]] = p) or captures_along_offset[t,p,1,-1] or captures_along_offset[t,p,-1,-1]
+            // captures
+            // (all p_other: Piece | (t.board[r][c] = p and p_other.color != p.color and t.board[subtract[r,1]][subtract[c,1]] = p_other) 
+            //     implies t.board[subtract[r,1]][subtract[c,1]] = p and piece_captured[t,p_other]) or
+            // (all p_other: Piece | (t.board[r][c] = p and p_other.color != p.color and t.board[add[r,1]][subtract[c,1]] = p_other) 
+            //     implies t.board[add[r,1]][subtract[c,1]] = p and piece_captured[t,p_other])
     }
 }
 
@@ -138,6 +164,7 @@ pred only_one_piece_moved[p_moved: Piece, tA, tB: Turn]{
     all p_stable : Piece | some r_stable,c_stable: Int | {
         // All stable pieces do not move between turns
         (p_stable != p_moved) implies 
+            // note: This is currently overconstraining the model, as this makes it imperative that the piece is there in the next stage
             tA.board[r_stable][c_stable] = p_stable
             tA.next.board[r_stable][c_stable] = p_stable // Note: Maybe this should be tA.next
     }
@@ -207,14 +234,49 @@ run {
     some disj turnA, turnB, turnC: Turn | { 
         turnA.next = turnB
         turnB.next = turnC
-        white_turn[turnA, turnB]
-        black_turn[turnB, turnC]
+        //white_turn[turnA, turnB]
+        //black_turn[turnB, turnC]
+        black_turn[turnA, turnB]
+        white_turn[turnB, turnC]
         wellformed_turn[turnA]
         wellformed_turn[turnB] 
         wellformed_turn[turnC] 
+
+        some disj pW,pB1,pB2,pB3: Pawn | some r,c: Int | {
+            pW.color = White
+            pB1.color = Black
+            pB2.color = Black
+            pB3.color = Black
+            turnA.board[r][c] = pW
+            turnA.board[r][subtract[c,1]] = pB2
+            turnA.board[subtract[r,1]][subtract[c,1]] = pB1
+            turnA.board[add[r,1]][subtract[c,1]] = pB3
+            //piece_captured[turnB, pW2]
+        }
     }
-    all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
-} for exactly 3 Turn, exactly 2 Piece
+    //all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
+} for exactly 3 Turn, exactly 4 Piece, exactly 4 Pawn
+
+capture: run {
+    wellformed_pieces
+    // 
+    some disj turnA, turnB, turnC: Turn | { 
+        turnA.next = turnB
+        turnB.next = turnC
+        //white_turn[turnA, turnB]
+        //black_turn[turnB, turnC]
+        black_turn[turnA, turnB]
+        white_turn[turnB, turnC]
+        wellformed_turn[turnA]
+        wellformed_turn[turnB] 
+        wellformed_turn[turnC] 
+
+        some p: Pawn |  {
+            piece_captured[turnC, p]
+        }
+    }
+    //all t: Turn | all p:Piece | some r,c: Int | t.board[r][c] = p // temp. predicate for testing move conditions. This holds true anyway until we add captures.
+} for exactly 3 Turn, exactly 1 Piece, exactly 1 Pawn
 
 // Pawn Movement Run
 // run {
